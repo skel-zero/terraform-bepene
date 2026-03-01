@@ -16,7 +16,7 @@ data "aws_ami" "ubuntu" {
 
 resource "aws_key_pair" "deployer" {
   key_name   = "saopaulo-ssh"
-  public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPzeBxSrsO8uIGVAyiv2MwB/YHp+LcuaavYzXRBa6+CY saopaulo"
+  public_key = var.public_key
 }
 
 resource "aws_security_group" "vpn_sg" {
@@ -31,13 +31,14 @@ resource "aws_security_group" "vpn_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress {
+/* not needed for now   
+ingress {
     description = "SSH Access"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # For production, restrict this to your home IP
-  }
+    cidr_blocks = ["0.0.0.0/0"]
+  } */
 
   egress {
     from_port   = 0

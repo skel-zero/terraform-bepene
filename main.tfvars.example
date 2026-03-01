@@ -1,0 +1,4 @@
+domain = "notarealdomainihope.com"
+subdomain = "vpn"
+zone_id = "Z05XXXXXXXXXXXXXX"
+public_key = "ssh-ed25519 ....................... keyname"
