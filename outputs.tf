@@ -1,7 +1,7 @@
 output "accelerator_ips" {
-  value       = aws_globalaccelerator_accelerator.accelerator.ip_sets
+  value       = module.brazil.accelerator_ips
 }
 
 output "instance_public_ip" {
-  value       = aws_instance.instance.public_ip
+  value       = module.brazil.instance_public_ip
 }
