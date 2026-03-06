@@ -13,6 +13,17 @@ variable "zone_id" {
   type        = string
 }
 
+variable "accelerator" {
+  type        = object({
+    arn = string
+    ips = list(object({
+      ip_addresses = list(string)
+      ip_family    = string
+    }))
+  })
+  
+}
+
 variable "public_key" {
   description = "The public key for SSH access"
   type        = string

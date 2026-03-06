@@ -1,5 +1,5 @@
 output "accelerator_ips" {
-  value       = aws_globalaccelerator_accelerator.accelerator.ip_sets
+  value       = var.accelerator.ips
 }
 
 output "instance_public_ip" {
