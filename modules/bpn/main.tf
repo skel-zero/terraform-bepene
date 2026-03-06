@@ -3,8 +3,8 @@ resource "aws_globalaccelerator_listener" "listener" {
   protocol        = "UDP"
 
   port_range {
-    from_port = 443
-    to_port   = 443
+    from_port = var.vpn_server_port
+    to_port   = var.vpn_server_port
   }
 }
 

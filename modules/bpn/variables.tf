@@ -24,6 +24,12 @@ variable "accelerator" {
   
 }
 
+variable "vpn_server_port" {
+  description = "The port for the VPN server"
+  type        = number
+  default = 443
+}
+
 variable "public_key" {
   description = "The public key for SSH access"
   type        = string
