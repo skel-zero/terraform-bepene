@@ -4,6 +4,7 @@ variable "replicas" {
     domain             = string
     subdomain          = string
     region             = string
+    instance_type      = optional(string, "t3.nano")
     zone_id            = string
     public_key         = string
     notification_email = string

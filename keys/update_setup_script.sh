@@ -49,7 +49,7 @@ umask 077
 cat <<'WGEOF' > /etc/wireguard/wg0.conf
 [Interface]
 Address = 10.0.0.1/24
-ListenPort = 443
+ListenPort = \${port}
 PrivateKey = $SERVER_PRIV
 
 PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o ens5 -j MASQUERADE

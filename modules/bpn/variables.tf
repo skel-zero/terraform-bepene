@@ -44,3 +44,19 @@ variable "region" {
   description = "AWS region to deploy the resources"
   type        = string
 }
+
+variable "budget_name" {
+  description = "Name of the budget to attach the action to"
+  type        = string
+}
+
+variable "budgets_role_arn" {
+  description = "ARN of the IAM role for budget actions"
+  type        = string
+}
+variable "instance_type" {
+  description = "EC2 instance type to use for the VPN server"
+  type        = string
+  default     = "t3.nano"
+  
+}

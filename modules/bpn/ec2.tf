@@ -13,7 +13,6 @@ data "aws_ami" "ubuntu" {
 
   owners = ["099720109477"] # Canonical
 }
-
 resource "aws_key_pair" "deployer" {
   key_name   = "saopaulo-ssh"
   public_key = var.public_key
@@ -25,8 +24,8 @@ resource "aws_security_group" "vpn_sg" {
 
   ingress {
     description = "WireGuard UDP"
-    from_port   = 443
-    to_port     = 443
+    from_port   = var.vpn_server_port
+    to_port     = var.vpn_server_port
     protocol    = "udp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -57,13 +56,14 @@ ingress {
 }
 
 resource "aws_instance" "instance" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = "t3.nano"
-  key_name      = aws_key_pair.deployer.key_name
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = var.instance_type
+  key_name               = aws_key_pair.deployer.key_name
   vpc_security_group_ids = [aws_security_group.vpn_sg.id]
 
   user_data = templatefile("${path.root}/setup.tpl", {
     domain = local.full_domain
+    port   = var.vpn_server_port
   })
 
   tags = {
