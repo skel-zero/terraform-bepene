@@ -131,6 +131,8 @@ PacketFilters() {
     fi
 }
 RoutingRules() {
+    endpoint_ip=$(ping -c 1 $ENDPOINT | awk -F '[()]' '/PING/ {print $2}')
+
     echo "[Routing Rules]:"
     if [ "$1" == "set" ]; then
         # Packets with mark will go through the configured table
@@ -138,7 +140,7 @@ RoutingRules() {
         ip rule add fwmark $MARK priority 500 table $TABLE
         # Route vpn server's ip to main so it doesnt get routed to itself
         echo "[#] Packet Rule: route packets destined to the vpn server's endpoint through the main interface."
-        ip rule add to $ENDPOINT priority 400 table main
+        ip rule add to $endpoint_ip priority 400 table main
         # Set the table as a route to the vpn
         echo "[#] Setting table $TABLE as a route to the vpn($PROFILE) interface..."
         ip route add default dev $PROFILE table $TABLE
@@ -154,7 +156,7 @@ RoutingRules() {
         ip rule del fwmark $MARK priority 500 2>/dev/null
 
         echo "[#] Deleting vpn server endpoint router"
-        ip rule del to $ENDPOINT priority 400 2>/dev/null
+        ip rule del to $endpoint_ip priority 400 2>/dev/null
 
         echo "[#] Done."
     fi
