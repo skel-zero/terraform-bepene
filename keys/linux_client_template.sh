@@ -277,8 +277,10 @@ elif [ $1 == "down" ]; then
 elif [ "$1" == "run" ]; then
     shift
     if [ -d "$CGROUP_PATH" ]; then
+        echo "[skel0vpn]: running program inside of cgroup"
         exec cgexec -g net_cls:$CGROUP "$@"
     else
+        echo "[skel0vpn]: running program outside of cgroup"
         exec "$@"
     fi
 elif [ "$1" == "monitor" ]; then
@@ -294,15 +296,20 @@ fi
 
 #=================================== TESTS ===================================#
 test_echo_ok() {
-    for arg in "$@"; do
-        echo -e "[#] \e[32m$arg\e[0m"
-    done
+    INDENT=0; if [ ! -z $2 ]; then INDENT=$2; fi
+    while IFS= read -r linha; do
+        echo -e "[#] $(printf "%*s%s\n" "$INDENT" "" "\e[32m$linha\e[0m")"
+    done <<< "$1"
+
 
 }
 test_echo_fail() {
-    for arg in "$@"; do
-        echo -e "[#] \e[31m$arg\e[0m"
-    done
+    INDENT=0; if [ ! -z $2 ]; then INDENT=$2; fi
+
+    while IFS= read -r linha; do
+        echo -e "[#] $(printf "%*s%s\n" "$INDENT" "" "\e[31m$linha\e[0m")"
+    done <<< "$1"
+
 }
 
 check_owner() {
@@ -663,6 +670,65 @@ test_down() {
 }
 test_run() {
     verbose=$1
+    echo "[#command:run]:"
+
+    # Verify that we can run the process inside the cgroup without sudo
+    result=$(sudo -u $SUDO_USER $SCRIPT_PATH run echo "test_run" 2>&1)
+    grep -q "running program inside of cgroup" <<< "$result"
+    ran_inside_cgroup=$?
+    grep -q "cgroup change of group failed" <<< "$result"
+    change_of_group_failed=$?
+    grep -q "test_run" <<< "$result"
+    program_did_run=$?
+
+    if [ ! -d "$CGROUP_PATH" ]; then
+        test_echo_fail "Can run process inside the cgroup without being root: FAILED"
+        test_echo_fail "  cgroup net_cls:$CGROUP does not exist, check if it was created at $CGROUP_PATH"
+    elif [ ! -z "$result" ] && [ $ran_inside_cgroup -eq 0 ] && ([ $change_of_group_failed -eq 0 ] || [ $program_did_run -ne 0 ]); then
+        test_echo_fail "Can run process inside the cgroup without being root: FAILED"
+        test_echo_fail "  verify who owns $CGROUP_PATH, must be $SUDO_USER:$SUDO_USER"
+        if [ $verbose == "true" ]; then
+          test_echo_fail "$result"
+        fi
+    else
+        test_echo_ok "Can run process inside the cgroup without being root: OK"
+    fi
+
+    # Verify that in the absence of the cgroup the command will still run the program
+    if [ -d "$CGROUP_PATH" ]; then
+        mv "$CGROUP_PATH" "$CGROUP_PATH\_TEST"
+    fi
+
+    result=$(sudo -u $SUDO_USER $SCRIPT_PATH run echo "test_run" 2>&1)
+    grep -q "running program inside of cgroup" <<< "$result"
+    ran_inside_cgroup=$?
+    grep -q "running program outside of cgroup" <<< "$result"
+    ran_outside_cgroup=$?
+    grep -q "test_run" <<< "$result"
+    program_did_run=$?
+
+    if [ ! -z "$result" ] && [ $ran_outside_cgroup -ne 0 ] && [ $ran_inside_cgroup -eq 0 ]; then
+        test_echo_fail "Can still run process when cgroup is absent: FAILED"
+        test_echo_fail "  script branched to run the process inside the cgroup instead of outside."
+        if [ "$verbose" == true ]; then
+          test_echo_fail "$result" 4
+        fi
+    elif [ ! -z "$result" ] && [ $ran_outside_cgroup -eq 0 ] && [ $program_did_run -ne 0 ]; then
+        test_echo_fail "Can still run process when cgroup is absent: FAILED"
+        test_echo_fail "  script branched to run the process outside the cgroup, but there was no output."
+        if [ "$verbose" == true ]; then
+          test_echo_fail "  Command output:"
+          test_echo_fail "$result" 4
+        fi
+    else
+        test_echo_ok "Can still run process when cgroup is absent: OK"
+    fi
+
+    if [ -d "$CGROUP_PATH\_TEST" ]; then
+        mv "$CGROUP_PATH\_TEST" "$CGROUP_PATH"
+    fi
+
+
 }
 
 if [ "$1" == "test" ]; then
@@ -674,16 +740,15 @@ if [ "$1" == "test" ]; then
 
     echo "[#--- Tests ---#]"
     if [ "$test" == "install" ]; then
-        test_install verbose
+        test_install $verbose
     elif [ "$test" == "uninstall" ]; then
-        test_uninstall verbose
+        test_uninstall $verbose
     elif [ "$test" == "up" ]; then
-        test_up verbose
+        test_up $verbose
     elif [ "$test" == "down" ]; then
-        test_down verbose
+        test_down $verbose
     elif [ "$test" == "run" ]; then
-        test_run verbose
-        echo "unimplemented"
+        test_run $verbose
     fi
 
     # up test
