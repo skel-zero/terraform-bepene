@@ -572,6 +572,94 @@ test_up() {
 }
 test_down() {
     verbose=$1
+    echo "[#command:down]:"
+    # VPN up check
+    if wg show $PROFILE &>/dev/null; then
+        test_echo_fail "VPN down: FAILED"
+        test_echo_fail "  VPN is up."
+    else
+        test_echo_ok "VPN down: OK"
+    fi
+
+    # Packet Filters
+    mangle=$(iptables -t mangle -S)
+    cgroup_filter_entry="-A OUTPUT -m cgroup --cgroup $(to_uint $CLASSID) -j MARK --set-xmark $(to_hex $MARK)/0xffffffff"
+    tcp_mss_limiter_entry="-A OUTPUT -p tcp -m tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss $MSS"
+    nat_masquerade_entry="-A POSTROUTING -o $PROFILE -j MASQUERADE"
+
+    if grep -q -- "$cgroup_filter_entry" <<< "$mangle"; then
+        test_echo_fail "Packet Filters down (cgroup filter): FAILED"
+        test_echo_fail "  cgroup entry is still in the mangle table"
+        test_echo_fail "  iptables -t mangle -S should not list the entry bellow:"
+        test_echo_fail "    $cgroup_filter_entry"
+    else
+        test_echo_ok "Packet Filters down (cgroup filter): OK"
+    fi
+
+    if grep -q -- "$tcp_mss_limiter_entry" <<< "$mangle"; then
+        test_echo_fail "Packet Filters down (tcp mss limiter): FAILED"
+        test_echo_fail "  tcp mss limiter entry is still in the mangle table"
+        test_echo_fail "  iptables -t mangle -S should not list the entry bellow:"
+        test_echo_fail "    $tcp_mss_limiter_entry"
+    else
+        test_echo_ok "Packet Filters down (tcp mss limiter): OK"
+    fi
+
+    if grep -q -- "$nat_masquerade_entry" <<< "$(iptables-save -t nat)"; then
+        test_echo_fail "Packet Filters down (nat masquerade): FAILED"
+        test_echo_fail "  nat masquerade entry is still in the nat table"
+        test_echo_fail "  iptables-save -t nat should not list the entry bellow:"
+        test_echo_fail "    $nat_masquerade_entry"
+    else
+        test_echo_ok "Packet Filters down (nat masquerade): OK"
+    fi
+    # Routing Rules
+    ip_rules=$(ip rule show)
+    marked_packets_to_table_rule_entry="from all fwmark $(to_hex $MARK) lookup $TABLE"
+    table_to_interface_route_entry="default dev $PROFILE scope link"
+    outgoing_vpn_packets_rule_entry="from all to $ENDPOINT_IP lookup main"
+
+    if grep -q -- "$marked_packets_to_table_rule_entry" <<< "$ip_rules"; then
+        test_echo_fail "Routing Rules down (router[marked packets -> table]): FAILED"
+        test_echo_fail "  entry is still in the ip rule list"
+        test_echo_fail "  ip rule show should not list the entry bellow:"
+        test_echo_fail "    $marked_packets_to_table_rule_entry"
+    else
+        test_echo_ok "Routing Rules down (router[marked packets -> table]): OK"
+    fi
+
+    if grep -q -- "$outgoing_vpn_packets_rule_entry" <<< "$ip_rules"; then
+        test_echo_fail "Routing Rules down (router[outgoing vpn packets -> main interface]): FAILED"
+        test_echo_fail "  entry is still in the ip rule list"
+        test_echo_fail "  ip rule show should not list the entry bellow:"
+        test_echo_fail "    $outgoing_vpn_packets_rule_entry"
+    else
+        test_echo_ok "Routing Rules down (router[outgoing vpn packets -> main interface]): OK"
+    fi
+
+    if grep -q -- "$table_to_interface_route_entry" <<< "$(ip route show table $TABLE)"; then
+        test_echo_fail "Routing Rules down (route[table -> vpn interface]): FAILED"
+        test_echo_fail "  entry is still in the ip route list"
+        test_echo_fail "  ip route show table $TABLE should not list the entry bellow:"
+        test_echo_fail "    $table_to_interface_route_entry"
+    else
+        test_echo_ok "Routing Rules down (route[table -> vpn interface]): OK"
+    fi
+
+    # Connection test
+    main_itfc_ip=$(curl -s4 ifconfig.me)
+    cgroup_ip=$(cgexec -g net_cls:$CGROUP curl -s4 ifconfig.me)
+
+    if [ -z "$cgroup_ip" ]; then
+      test_echo_fail "Connection from inside the cgroup goes through main interface: FAILED"
+      test_echo_fail "  cgroup is not able to retrieve any IP from ifconfig.me"
+    elif [ "$cgroup_ip" != "$main_itfc_ip" ]; then
+        test_echo_fail "Connection from inside the cgroup goes through main interface: FAILED"
+        test_echo_fail "  cgroup has a different ip from the main interface"
+        test_echo_fail "  expected(main interface): $main_itfc_ip; got(cgroup): $cgroup_ip"
+    else
+        test_echo_ok "Connection from inside the cgroup goes through main interface: OK"
+    fi
 }
 test_run() {
     verbose=$1
@@ -593,7 +681,6 @@ if [ "$1" == "test" ]; then
         test_up verbose
     elif [ "$test" == "down" ]; then
         test_down verbose
-        echo "unimplemented"
     elif [ "$test" == "run" ]; then
         test_run verbose
         echo "unimplemented"
