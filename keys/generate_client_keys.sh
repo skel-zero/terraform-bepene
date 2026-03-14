@@ -69,10 +69,10 @@ AllowedIPs = 0.0.0.0/0
 PersistentKeepalive = 25
 EOF
     else
-        sed -e "s/\$TEMPLATE_ADDRESS/10.0.0.$CLIENT_IP\/32/g" \
-            -e "s/\$TEMPLATE_PRIVATE_KEY/$(cat $folder/private.key)/g" \
-            -e "s/\$TEMPLATE_PUBLIC_KEY/$SERVER_PUB/g" \
-            -e "s/\$TEMPLATE_ENDPOINT/$domain/g" keys/linux_client_template.sh > "$folder/$CLIENT_NAME.sh"
+        sed -e "s#\$TEMPLATE_ADDRESS#10.0.0.$CLIENT_IP/32#g" \
+            -e "s#\$TEMPLATE_PRIVATE_KEY#$(cat $folder/private.key)#g" \
+            -e "s#\$TEMPLATE_PUBLIC_KEY#$SERVER_PUB#g" \
+            -e "s#\$TEMPLATE_ENDPOINT#$domain#g" keys/linux_client_template.sh > "$folder/$CLIENT_NAME.sh"
     fi
 
 done
