@@ -351,8 +351,18 @@ uint_cmp() {
 
 test_install() {
     verbose=$1
+    if [ -f "$INSTALL_PATH" ]; then
+        $SCRIPT_PATH uninstall &>/dev/null
+    fi
 
-    echo "[#command:install]:"
+    echo -e "[#]\e[34m[Test:command:install]\e[0m:"
+    if [ $verbose -eq 2 ]; then
+        echo "[#][Command Output:]"
+        $SCRIPT_PATH install 2>&1
+    else
+        $SCRIPT_PATH install &>/dev/null
+    fi
+
     # Wireguard config
     if [ ! -f "$WIREGUARD_CONFIG_PATH" ]; then
         test_echo_fail "Wireguard profile installation: FAILED"
@@ -362,7 +372,7 @@ test_install() {
     else
         test_echo_fail "Wireguard profile installation: FAILED"
         test_echo_fail "  FILE IN $WIREGUARD_CONFIG_PATH DOES NOT MATCH TEMPLATE"
-        if [ $verbose == "true" ]; then
+        if [ $verbose -gt 0 ]; then
             diff -B "$WIREGUARD_CONFIG_PATH" <(WireguardConfig get)
         fi
     fi
@@ -374,7 +384,7 @@ test_install() {
     elif ! diff -qB "$CGROUP_SERVICE_PATH" <(CGroupInitService get) >/dev/null; then
         test_echo_fail "CGroup configuration and creation service setup: FAILED"
         test_echo_fail "  FILE IN $CGROUP_SERVICE_PATH DOES NOT MATCH TEMPLATE"
-        if [ $verbose == "true" ]; then
+        if [ $verbose -gt 0 ]; then
             diff -B "$CGROUP_SERVICE_PATH" <(CGroupInitService get)
         fi
     elif ! systemctl is-enabled -q $CGROUP_SERVICE_ID; then
@@ -404,7 +414,7 @@ test_install() {
         test_echo_fail "CGroup configuration and creation: FAILED"
         test_echo_fail "  some or all file/dir gid:pid in $CGROUP_PATH are wrong"
         test_echo_fail "  they should all be owned by $SUDO_USER:$SUDO_USER"
-        if [$verbose == "true" ]; then
+        if [$verbose -gt 0 ]; then
             test_echo_fail "$(ls -lR "$CGROUP_PATH")"
         fi
     elif ! uint_cmp $conf_classid $CLASSID; then
@@ -423,7 +433,7 @@ test_install() {
     elif [ -f "$SCRIPT_PATH" ] && ! diff -qB "$INSTALL_PATH" "$SCRIPT_PATH" >/dev/null; then
         test_echo_fail "Script installation: FAILED"
         test_echo_fail "  FILE IN $INSTALL_PATH DOES NOT MATCH THE ORIGINAL SCRIPT FILE IN $SCRIPT_PATH"
-        if [ $verbose == "true" ]; then
+        if [ $verbose -gt 0 ]; then
             diff -qB "$INSTALL_PATH" "$SCRIPT_PATH"
         fi
     elif [ ! -x "$INSTALL_PATH" ]; then
@@ -436,7 +446,14 @@ test_install() {
 test_uninstall() {
     verbose=$1
 
-    echo "[#command:uninstall]:"
+    echo -e "[#]\e[34m[Test:command:uninstall]\e[0m:"
+    if [ $verbose -eq 2 ]; then
+        echo "[#][Command Output:]"
+        $SCRIPT_PATH uninstall 2>&1
+    else
+        $SCRIPT_PATH uninstall &>/dev/null
+    fi
+
     # VPN tear down
     if wg show $PROFILE &>/dev/null; then
         test_echo_fail "VPN tear down: FAILED"
@@ -487,7 +504,14 @@ test_uninstall() {
 test_up() {
     verbose=$1
 
-    echo "[#command:up]:"
+    echo -e "[#]\e[34m[Test:command:up]\e[0m:"
+    if [ $verbose -eq 2 ]; then
+        echo "[#][Command Output:]"
+        $SCRIPT_PATH up 2>&1
+    else
+        $SCRIPT_PATH up &>/dev/null
+    fi
+
     # VPN up check
     if ! wg show $PROFILE &>/dev/null; then
         test_echo_fail "VPN up: FAILED"
@@ -579,7 +603,14 @@ test_up() {
 }
 test_down() {
     verbose=$1
-    echo "[#command:down]:"
+
+    echo -e "[#]\e[34m[Test:command:down]\e[0m:"
+    if [ $verbose -eq 2 ]; then
+        echo "[#][Command Output:]"
+        $SCRIPT_PATH down 2>&1
+    else
+        $SCRIPT_PATH down &>/dev/null
+    fi
     # VPN up check
     if wg show $PROFILE &>/dev/null; then
         test_echo_fail "VPN down: FAILED"
@@ -670,7 +701,7 @@ test_down() {
 }
 test_run() {
     verbose=$1
-    echo "[#command:run]:"
+    echo -e "[#]\e[34m[Test:command:run]\e[0m:"
 
     # Verify that we can run the process inside the cgroup without sudo
     result=$(sudo -u $SUDO_USER $SCRIPT_PATH run echo "test_run" 2>&1)
@@ -687,7 +718,7 @@ test_run() {
     elif [ ! -z "$result" ] && [ $ran_inside_cgroup -eq 0 ] && ([ $change_of_group_failed -eq 0 ] || [ $program_did_run -ne 0 ]); then
         test_echo_fail "Can run process inside the cgroup without being root: FAILED"
         test_echo_fail "  verify who owns $CGROUP_PATH, must be $SUDO_USER:$SUDO_USER"
-        if [ $verbose == "true" ]; then
+        if [ $verbose -gt 0 ]; then
           test_echo_fail "$result"
         fi
     else
@@ -710,13 +741,13 @@ test_run() {
     if [ ! -z "$result" ] && [ $ran_outside_cgroup -ne 0 ] && [ $ran_inside_cgroup -eq 0 ]; then
         test_echo_fail "Can still run process when cgroup is absent: FAILED"
         test_echo_fail "  script branched to run the process inside the cgroup instead of outside."
-        if [ "$verbose" == true ]; then
+        if [ $verbose -gt 0 ]; then
           test_echo_fail "$result" 4
         fi
     elif [ ! -z "$result" ] && [ $ran_outside_cgroup -eq 0 ] && [ $program_did_run -ne 0 ]; then
         test_echo_fail "Can still run process when cgroup is absent: FAILED"
         test_echo_fail "  script branched to run the process outside the cgroup, but there was no output."
-        if [ "$verbose" == true ]; then
+        if [ $verbose -gt 0 ]; then
           test_echo_fail "  Command output:"
           test_echo_fail "$result" 4
         fi
@@ -727,18 +758,17 @@ test_run() {
     if [ -d "$CGROUP_PATH\_TEST" ]; then
         mv "$CGROUP_PATH\_TEST" "$CGROUP_PATH"
     fi
-
-
 }
 
 if [ "$1" == "test" ]; then
     test="$2"
-    verbose=false
+    verbose=0
     if [ ! -z "$3" ] && [ "$3" = "-v" ]; then
-        verbose=true
+        verbose=1
+    elif [ ! -z "$3" ] && [ "$3" = "-vv" ]; then
+        verbose=2
     fi
 
-    echo "[#--- Tests ---#]"
     if [ "$test" == "install" ]; then
         test_install $verbose
     elif [ "$test" == "uninstall" ]; then
@@ -749,11 +779,14 @@ if [ "$1" == "test" ]; then
         test_down $verbose
     elif [ "$test" == "run" ]; then
         test_run $verbose
+    elif [ "$test" == "all" ]; then
+        if [ $verbose -eq 1 ]; then verbose_flag="-v";
+        elif [ $verbose -eq 2 ]; then verbose_flag="-vv"; fi
+
+        $SCRIPT_PATH test install $verbose_flag
+        $SCRIPT_PATH test run $verbose_flag
+        $SCRIPT_PATH test up $verbose_flag
+        $SCRIPT_PATH test down $verbose_flag
+        $SCRIPT_PATH test uninstall $verbose_flag
     fi
-
-    # up test
-
-    # down test
-
-    # run test
 fi
