@@ -207,7 +207,7 @@ vpnctl() {
 
         info "Waiting for a game to open...";
         while steamctl "$steam_type" is_running; do for rule in "${rules[@]}"; do
-            game_pid="$(pgrep -f "^[A-Z]:.*\\$rule" | head -n 1)";
+            game_pid="$(pgrep -f '(^[A-Z]:.*\\)?'"$rule" | head -n 1)";
             game_rule="$rule";
 
             if [ -n "$game_pid" ]; then
